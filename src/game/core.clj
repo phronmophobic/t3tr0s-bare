@@ -1,42 +1,41 @@
-(ns ^:figwheel-always game.core
-  (:require-macros
-    [cljs.core.async.macros :refer [go go-loop alt!]])
+(ns game.core
   (:require
-    [cljs.reader :refer [read-string]]
-    [game.board :refer [piece-fits?
-                        rotate-piece
-                        start-position
-                        empty-board
-                        get-drop-pos
-                        get-rand-piece
-                        get-rand-diff-piece
-                        write-piece-to-board
-                        write-piece-behind-board
-                        create-drawable-board
-                        get-filled-row-indices
-                        clear-rows
-                        game-over-row
-                        collapse-rows
-                        highlight-rows
-                        write-to-board
-                        n-rows
-                        n-cols
-                        rows-cutoff
-                        next-piece-board
-                        tower-height]]
+   [clojure.core.async :refer [go go-loop alt!
+                               >!
+                               close! put! chan <! timeout unique alts!]]
+   [membrane.ui :as ui]
+   [game.board :refer [piece-fits?
+                       rotate-piece
+                       start-position
+                       empty-board
+                       get-drop-pos
+                       get-rand-piece
+                       get-rand-diff-piece
+                       write-piece-to-board
+                       write-piece-behind-board
+                       create-drawable-board
+                       get-filled-row-indices
+                       clear-rows
+                       game-over-row
+                       collapse-rows
+                       highlight-rows
+                       write-to-board
+                       n-rows
+                       n-cols
+                       rows-cutoff
+                       next-piece-board
+                       tower-height]]
     [game.rules :refer [get-points
                         level-up?
                         grav-speed
                         initial-shift-speed
                         shift-speed]]
-    [game.paint :refer [size-canvas!
-                        cell-size
-                        draw-board!]]
-    [cljs.core.async :refer [close! put! chan <! timeout unique alts!]]))
+    [game.paint :refer [cell-size
+                        draw-board]
+     :as paint]
+    ))
 
-(enable-console-print!)
 
-(def $ js/jQuery)
 
 ;;------------------------------------------------------------
 ;; STATE OF THE GAME
@@ -99,7 +98,12 @@
   [stop-chan dx]
   (go-loop [speed initial-shift-speed]
     (try-move! dx 0)
-    (let [[value c] (alts! [stop-chan (timeout speed)])]
+    (let [t (timeout speed)
+          [value c]
+          (alt!
+            t ([v] [v t])
+            stop-chan ([v] [v stop-chan]))
+          #_(alts! [stop-chan (timeout speed)])]
       (when-not (= c stop-chan)
         (recur shift-speed)))))
 
@@ -120,13 +124,12 @@
 (defn make-redraw-chan
   "Create a channel that receives a value everytime a redraw is requested."
   []
-  (let [redraw-chan (chan)
-        request-anim #(.requestAnimationFrame js/window %)]
-    (letfn [(trigger-redraw []
-              (put! redraw-chan 1)
-              (request-anim trigger-redraw))]
-      (request-anim trigger-redraw)
-      redraw-chan)))
+  (let [redraw-chan (chan)]
+    (go-loop []
+      (>! redraw-chan 1)
+      (<! (timeout 30))
+      (recur))
+    redraw-chan))
 
 (defn drawable-board
   "Draw the current state of the board."
@@ -136,6 +139,18 @@
          board :board} @state]
     (create-drawable-board piece x y board)))
 
+(declare button-panel)
+
+(defn update-view [board new-board next-piece]
+  (reset! main-view
+          (ui/translate 50 130
+           (ui/vertical-layout
+            (ui/scale 0.5 0.5
+                      (ui/horizontal-layout
+                       (draw-board  new-board cell-size rows-cutoff)
+                       (draw-board  (next-piece-board next-piece) cell-size)))
+            (button-panel))))
+  )
 (defn go-go-draw!
   "Kicks off the drawing routine."
   []
@@ -145,8 +160,7 @@
       (let [new-board (drawable-board)
             next-piece (:next-piece @state)]
         (when (not= board new-board)
-          (draw-board! "game-canvas" new-board cell-size rows-cutoff)
-          (draw-board! "next-canvas" (next-piece-board next-piece) cell-size))
+          (update-view board new-board next-piece))
         (recur new-board)))))
 
 ;;------------------------------------------------------------
@@ -190,9 +204,10 @@
 
 (defn display-points!
   []
-  (.html ($ "#score") (str "Score: " (:score @state)))
-  (.html ($ "#level") (str "Level: " (:level @state)))
-  (.html ($ "#lines") (str "Lines: " (:total-lines @state))))
+  (comment
+    (.html ($ "#score") (str "Score: " (:score @state)))
+    (.html ($ "#level") (str "Level: " (:level @state)))
+    (.html ($ "#lines") (str "Lines: " (:total-lines @state)))))
 
 
 (defn update-points!
@@ -285,7 +300,12 @@
   []
   (go-loop []
     (let [speed (grav-speed (:level @state) (:soft-drop @state))
-          [_ c] (alts! [(timeout speed) stop-grav])]
+          t (timeout speed)
+          [_ c]
+          (alt!
+            t ([v] [v t])
+            stop-grav ([v] [v stop-grav]))
+          #_(alts! [(timeout speed) stop-grav])]
       (when-not (= c stop-grav)
         (apply-gravity!)
         (recur)))))
@@ -353,6 +373,36 @@
                 16 :shift
                 80 :p})
 
+(defn button-panel []
+  (apply ui/horizontal-layout
+         (for [kw [:down
+                   :left
+                   :right
+                   :space
+                   :up]]
+           (ui/on
+            :mouse-down
+            (fn [_]
+              (when (:piece @state)
+                (case kw
+                  :down  (put! move-down-chan true)
+                  :left  (put! move-left-chan true)
+                  :right (put! move-right-chan true)
+                  :space (hard-drop!)
+                  :up    (try-rotate!)
+                  nil))
+              nil)
+            :mouse-up
+            (fn [_]
+              (case kw
+                :down  (put! move-down-chan false)
+                :left  (put! move-left-chan false)
+                :right (put! move-right-chan false)
+                :p (toggle-pause-game!)
+                nil)
+              nil)
+            (ui/button (name kw))))))
+
 (defn add-key-events
   "Add all the key inputs."
   []
@@ -379,9 +429,9 @@
                    nil))]
 
 
-    ; Add key events
-    (.addEventListener js/window "keydown" key-down)
-    (.addEventListener js/window "keyup" key-up)))
+                                        ; Add key events
+    #_(.addEventListener js/window "keydown" key-down)
+    #_(.addEventListener js/window "keyup" key-up)))
 
 
 
@@ -398,14 +448,18 @@
   (manage-piece-shift! move-right-chan 1)
 
 
-  (size-canvas! "game-canvas" empty-board cell-size rows-cutoff)
-  (size-canvas! "next-canvas" (next-piece-board) cell-size)
+  #_(size-canvas! "game-canvas" empty-board cell-size rows-cutoff)
+  #_(size-canvas! "next-canvas" (next-piece-board) cell-size)
 
   (try-spawn-piece!)
-  (add-key-events)
+  ;; (add-key-events)
   (go-go-draw!)
 
   (display-points!))
 
 
-($ init)
+(comment
+  (init))
+
+
+

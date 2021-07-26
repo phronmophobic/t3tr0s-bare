@@ -62,47 +62,50 @@
 ;     Rotate( [X Y A] )  -->   [ -Y X (4 bit rotate of A) ]
 ; 
 
+(defn zero? [x]
+  (= x 0))
+
 (def pieces
   {:I {:name :I
        :coords [
-        [-1  0  2] [ 0  0 10] [ 1  0 10] [ 2  0  8]
-        ]}
+                [-1  0  2] [ 0  0 10] [ 1  0 10] [ 2  0  8]
+                ]}
 
    :L {:name :L
        :coords [
-                              [ 1 -1  4]
-        [-1  0  2] [ 0  0 10] [ 1  0  9]
-        ]}
+                [ 1 -1  4]
+                [-1  0  2] [ 0  0 10] [ 1  0  9]
+                ]}
 
    :J {:name :J
        :coords [
-        [-1 -1  4]
-        [-1  0  3] [ 0  0 10] [ 1  0  8]
-        ]}
+                [-1 -1  4]
+                [-1  0  3] [ 0  0 10] [ 1  0  8]
+                ]}
 
    :S {:name :S
        :coords [
-                   [ 0 -1  6] [ 1 -1  8]
-        [-1  0  2] [ 0  0  9]
-        ]}
+                [ 0 -1  6] [ 1 -1  8]
+                [-1  0  2] [ 0  0  9]
+                ]}
 
    :Z {:name :Z
        :coords [
-        [-1 -1  2] [ 0 -1 12]
-                   [ 0  0  3] [ 1  0  8]
-        ]}
+                [-1 -1  2] [ 0 -1 12]
+                [ 0  0  3] [ 1  0  8]
+                ]}
 
    :O {:name :O
        :coords [
-                   [ 0 -1  6] [ 1 -1 12]
-                   [ 0  0  3] [ 1  0  9]
-        ]}
+                [ 0 -1  6] [ 1 -1 12]
+                [ 0  0  3] [ 1  0  9]
+                ]}
 
    :T {:name :T
        :coords [
-                   [ 0 -1  4]
-        [-1  0  2] [ 0  0 11] [ 1  0  8]
-        ]}})
+                [ 0 -1  4]
+                [-1  0  2] [ 0  0 11] [ 1  0  8]
+                ]}})
 
 (defn get-rand-diff-piece
   "Return a random piece different from the given one."
@@ -126,13 +129,16 @@
 (defn piece-value
   "Creates a cell value from the given piece type and adjacency."
   [t a]
-  (if (zero? t) 0 (str (name t) a)))
+  (if (= 0 t) 0 (str (name t) a)))
 
 (defn piece-type-adj
   "Gets the piece type and adjacency from a cell value string."
   [value]
-  (let [t (if (zero? value) 0 (keyword (first value))) ; get the value key (piece type)
-        a (if (zero? value) 0 (int (subs value 1)))]   ; get the adjacency code
+  (let [t (if (zero? value) 0 (keyword (subs value 0 1))) ; get the value key (piece type)
+        a (if (zero? value) 0
+              (if-let [s (subs value 1)]
+                (read-string s)
+                0))]   ; get the adjacency code
     [t a]))
 
 (defn update-adj
