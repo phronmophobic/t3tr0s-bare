@@ -1,7 +1,6 @@
 (ns game.paint
   (:require
    [membrane.ui :as ui]
-   [org.httpkit.client :as client]
    [game.board :refer [empty-board
                        read-board
                        board-size
