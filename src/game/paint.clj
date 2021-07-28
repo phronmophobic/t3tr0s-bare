@@ -17,7 +17,7 @@
   (url->image "https://github.com/phronmophobic/t3tr0s-bare/raw/master/resources/public/tilemap-gameboy-real-adj.png"))
 
 ; The size of a cell in pixels.
-(def cell-size 32)
+(def cell-size 39.9)
 
 (def value-position
   "An ordering imposed on the possible cell types, used for tilemap position."

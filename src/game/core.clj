@@ -142,8 +142,8 @@
 (declare button-panel)
 
 (defn update-view [board new-board next-piece]
+          (ui/translate 30 130
   (reset! main-view
-          (ui/translate 50 130
            (ui/vertical-layout
             (ui/scale 0.5 0.5
                       (ui/horizontal-layout
