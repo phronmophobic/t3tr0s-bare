@@ -11,7 +11,7 @@ An example of running tetris with sci+graalvm.
 
 ## Play with the REPL
 
-1. Follow the [membrane example](https://github.com/phronmophobic/mobiletest#membrane-example) instructions.
+1. Follow the [membrane example](https://github.com/phronmophobic/grease#membrane-example) instructions.
 2. Connect to the repl
 3. Run the namespaces in the following order: `board.clj`, `rules.clj`, `paint.clj`, `core.clj`
 4. From the core namespace, run `(init)` to start the game.
