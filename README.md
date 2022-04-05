@@ -2,8 +2,7 @@
 
 This is a bare version of single player
 [T3TR0S](http://github.com/imalooney/t3tr0s), because we miss the accessibility
-and simplicity of its code before features become a priority.  Oh, and it's in
-[ClojureScript](https://github.com/shaunlebron/ClojureScript-Syntax-in-15-minutes).
+and simplicity of its code before features become a priority.
 
 An example of running tetris with sci+graalvm.
 
